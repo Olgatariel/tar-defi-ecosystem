@@ -1,17 +1,26 @@
-node_modules
+# Node modules
+node_modules/
+
+# Environment files
 .env
+.env.local
+.env.*.local
 
-# Hardhat files
-/cache
+# Hardhat build artifacts
 /artifacts
-
-# TypeChain files
+/cache
 /typechain
 /typechain-types
-
-# solidity-coverage files
 /coverage
 /coverage.json
 
-# Hardhat Ignition default folder for deployments against a local node
-ignition/deployments/chain-31337
+# Editor settings
+.vscode/
+.idea/
+
+# Draft or archive contracts (your personal)
+contracts/**/_drafts/
+contracts/**/*.off
+
+# System files
+.DS_Store

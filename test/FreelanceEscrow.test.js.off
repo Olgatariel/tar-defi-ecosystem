@@ -209,7 +209,6 @@ it("should revert if the function is called by someone other than the owner", as
     await createAndApproveDeal();
     await time.increase(15 * 24 * 60 * 60);
     await escrow.connect(freelancer).raiseDispute(1, "reason"); // Створюємо спір
-    console.log("Testing resolveDispute with client");
     await expect(
         escrow.connect(client).resolveDispute(1, true)
     ).to.be.revertedWith("Ownable: caller is not the owner");
