@@ -24,3 +24,8 @@ contracts/**/*.off
 
 # System files
 .DS_Store
+
+#old contracts
+/contracts/_archive
+/test/_archiveTests
+/UI
