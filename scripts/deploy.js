@@ -1,26 +1,25 @@
-const hre = require("hardhat");
+const { ethers } = require("hardhat");
 
 async function main() {
-  // 1. Отримуємо акаунт, з якого будемо деплоїти
-  const [deployer] = await hre.ethers.getSigners();
-  console.log("Deploying contracts with:", deployer.address);
+  const [deployer] = await ethers.getSigners();
+  console.log("Deploying with:", deployer.address);
 
-  // 2. Деплоїмо TarToken
-  const Token = await hre.ethers.getContractFactory("TarToken");
-  const token = await Token.deploy();
+  // 1️⃣ Deploy token - ПЕРЕДАЄМО name і symbol
+  const Token = await ethers.getContractFactory("contracts/DeFiEcoSystem/Token.sol:TarToken");
+  const token = await Token.deploy("Tar Token", "TAR"); // ✅ Додали параметри!
   await token.waitForDeployment();
-  console.log("Token deployed to:", await token.getAddress());
+  const tokenAddress = await token.getAddress();
+  console.log("✅ Token deployed at:", tokenAddress);
 
-  // 3. Деплоїмо Treasury, передаючи адресу токена в конструктор
-  const Treasury = await hre.ethers.getContractFactory("Treasury");
-  const treasury = await Treasury.deploy(await token.getAddress());
+  // 2️⃣ Deploy Treasury
+  const Treasury = await ethers.getContractFactory("contracts/DeFiEcoSystem/Treasury.sol:Treasury");
+  const treasury = await Treasury.deploy(tokenAddress);
   await treasury.waitForDeployment();
-  console.log("Treasury deployed to:", await treasury.getAddress());
+  const treasuryAddress = await treasury.getAddress();
+  console.log("✅ Treasury deployed at:", treasuryAddress);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
