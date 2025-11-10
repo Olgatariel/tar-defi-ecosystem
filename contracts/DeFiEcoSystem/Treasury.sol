@@ -8,8 +8,9 @@ pragma solidity ^0.8.20;
  */
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -21,6 +22,7 @@ contract Treasury is ReentrancyGuard, Ownable, Pausable {
     event EthDeposited(address indexed from, uint256 amount);
     event EthWithdrawn(address indexed to, uint256 amount);
     event UnknownDataReceived(address indexed user, uint256 amount);
+    event AuthorizedChanged(address indexed to, bool status);
 
     //errors
     error InvalidAmount();
@@ -33,26 +35,12 @@ contract Treasury is ReentrancyGuard, Ownable, Pausable {
     //State variables
     ///@dev Can be updated by the Owner
     ///@dev The maximum deposit amount
-    uint256 public maxTARperTx = 100;
+    uint256 public maxTARperTx = 100 * 10 ** 18;
     uint256 public maxETHperTx = 100 ether;
 
     //structura,mapping
     IERC20 public token;
     using SafeERC20 for IERC20;
-
-    /// @notice Keeps track of ETH and token balances related to each address
-    /// @dev 'depositedBy' shows how much ETH/tokens user has sent to Treasury
-    ///'sentTo' shows how much ETH/tokens Treasury has already sent out
-    struct Balance {
-        uint256 eth; // amount of ETH deposited or withdrawn
-        uint256 tokens; // amount of TAR tokens deposited or withdrawn
-    }
-
-    /// @notice Mapping that stores how much ETH/tokens Treasury has sent out to each address
-    mapping(address => Balance) public sentTo;
-
-    /// @notice Mapping that stores how much ETH/tokens each address has sent to the Treasury
-    mapping(address => Balance) public depositedBy;
 
     /// @notice Stores addresses of authorized contracts allowed to interact with Treasury
     mapping(address => bool) public isAuthorized;
@@ -70,7 +58,10 @@ contract Treasury is ReentrancyGuard, Ownable, Pausable {
     /// @param _token Address of the TAR token contract used by Treasury
     /// @dev Initializes Treasury with ERC20 token address
     //constructor
-    constructor(address _token) {
+    constructor(
+        address _token
+    ) Ownable(msg.sender) ReentrancyGuard() Pausable() {
+        if (_token == address(0)) revert InvalidAddress();
         token = IERC20(_token);
     }
 
@@ -78,10 +69,9 @@ contract Treasury is ReentrancyGuard, Ownable, Pausable {
     //ETH
     /// @notice Handles plain ETH transfers sent directly to the contract
     /// @dev Triggered when ETH is sent without data and no function is called
-    receive() external payable {
+    receive() external payable nonReentrant {
         if (msg.value == 0) revert InvalidAmount();
         if (msg.value > maxETHperTx) revert ExceedMaxETHlimits();
-        depositedBy[msg.sender].eth += msg.value;
         emit EthDeposited(msg.sender, msg.value);
     }
 
@@ -90,13 +80,13 @@ contract Treasury is ReentrancyGuard, Ownable, Pausable {
     function depositETH() external payable whenNotPaused nonReentrant {
         if (msg.value == 0) revert InvalidAmount();
         if (msg.value > maxETHperTx) revert ExceedMaxETHlimits();
-        depositedBy[msg.sender].eth += msg.value;
         emit EthDeposited(msg.sender, msg.value);
     }
 
     /// @notice Handles unexpected ETH transfers or unknown function calls
     /// @dev Fallback function for invalid or incorrect data payloads
-    fallback() external payable {
+    fallback() external payable nonReentrant {
+        if (msg.value == 0) revert InvalidAmount();
         if (msg.value > maxETHperTx) revert ExceedMaxETHlimits();
         emit UnknownDataReceived(msg.sender, msg.value);
     }
@@ -107,14 +97,12 @@ contract Treasury is ReentrancyGuard, Ownable, Pausable {
     ///@param amount Amount of ETH to send
 
     function withdrawETH(
-        address to,
+        address payable to,
         uint256 amount
     ) external onlyAuthorized whenNotPaused nonReentrant {
         if (amount == 0) revert InvalidAmount();
         if (address(this).balance < amount) revert NotEnoughETH();
-        sentTo[to].eth += amount;
-        (bool sent, ) = to.call{value: amount}("");
-        require(sent, "Failed to send ETH");
+        Address.sendValue(to, amount);
         emit EthWithdrawn(to, amount);
     }
 
@@ -141,7 +129,6 @@ contract Treasury is ReentrancyGuard, Ownable, Pausable {
         uint256 balance = token.balanceOf(address(this));
         if (balance < amount) revert NotEnoughTokens();
         if (to == address(0)) revert InvalidAddress();
-        sentTo[to].tokens += amount;
         token.safeTransfer(to, amount);
         emit TokensWithdrawn(to, amount);
     }
@@ -156,15 +143,7 @@ contract Treasury is ReentrancyGuard, Ownable, Pausable {
         bool status
     ) external onlyOwner {
         isAuthorized[contractAddr] = status;
-    }
-
-    /// @notice Checks if a given contract address is authorized to interact with Treasury
-    /// @param contractAddr The address to check
-    /// @return True if the contract is authorized, otherwise false
-    function checkAuthorized(
-        address contractAddr
-    ) external view returns (bool) {
-        return isAuthorized[contractAddr];
+        emit AuthorizedChanged(contractAddr, status);
     }
 
     /// @notice Pauses all deposit and withdrawal operations
@@ -191,7 +170,7 @@ contract Treasury is ReentrancyGuard, Ownable, Pausable {
     /// @return ethBalance The current ETH balance
     /// @return tokenBalance The current TAR token balance
     function getContractBalance()
-        external
+        public
         view
         returns (uint256 ethBalance, uint256 tokenBalance)
     {
