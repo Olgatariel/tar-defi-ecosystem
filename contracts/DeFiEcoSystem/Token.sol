@@ -30,4 +30,10 @@ contract TarToken is ERC20, Ownable, Pausable {
         _burn(msg.sender, amount);
         emit TokensBurned(msg.sender, amount);
     }
+    function pause() public onlyOwner {
+        _pause();
+    }
+    function unpause() public onlyOwner {
+        _unpause();
+    }
 }
