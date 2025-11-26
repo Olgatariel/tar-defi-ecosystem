@@ -14,90 +14,106 @@ describe("TarToken", function() {
         await token.waitForDeployment();
     });
 
-describe("Deployment", () => {
-    it("Should set the correct name", async () => {
-        expect(await token.name()).to.equal("TarToken");
+    // DEPLOYMENT
+    describe("Deployment", () => {  
+        it("Should set the correct name", async () => {
+            expect(await token.name()).to.equal("TarToken");
+        });
+        
+        it("Should set the correct symbol", async () => {
+            expect(await token.symbol()).to.equal("TAR");
+        });
+        
+        it("Should set the correct decimals", async () => {
+            expect(await token.decimals()).to.equal(18);
+        });
+        
+        it("Should set the correct owner", async () => {
+            expect(await token.owner()).to.equal(owner.address);
+        });
+        
+        it("Should have zero initial supply", async () => {
+            expect(await token.totalSupply()).to.equal(0);
+        });
+        
+        it("Should set correct MAX_SUPPLY", async () => {
+            expect(await token.MAX_SUPPLY()).to.equal(MAX_SUPPLY);
+        });
     });
-    it("Should set the correct symbol", async () => {
-        expect(await token.symbol()).to.equal("TAR");
-    });
-    it("should set the correct decimals", async () => {
-        expect(await token.decimals()).to.equal(18);
-    });
-    it("should set the correct owner", async() => {
-        expect(await token.owner()).to.equal(owner.address);
-    });
-    it("should have zero initial supply", async () => {
-        expect(await token.totalSupply()).to.equal(0);
-    });
-    it("should set correct MAX_SUPPLY", async () => {
-        expect(await token.MAX_SUPPLY()).to.equal(MAX_SUPPLY);
-    });
-});
 
-//  MINT
-describe ("Mint", () => {
-    it("Should allow owner to mint tokens", async() => {
-        const amount = ethers.parseEther("1000");
+    // MINT 
+    describe("Mint", () => {  // ← ВІДСТУП ДОДАНО!
+        it("Should allow owner to mint tokens", async () => {
+            const amount = ethers.parseEther("1000");
 
-        await token.mint(user1.address, amount);
+            await token.mint(user1.address, amount);
 
-        expect(await token.balanceOf(user1.address)).to.equal(amount);
-        expect(await token. totalSupply()).to.equal(amount);
-    });
-    it("Should emit TokensMinted event", async() => {
-        const amount = ethers.parseEther("1000");
+            expect(await token.balanceOf(user1.address)).to.equal(amount);
+            expect(await token.totalSupply()).to.equal(amount);
+        });
+        
+        it("Should emit TokensMinted event", async () => {
+            const amount = ethers.parseEther("1000");
 
-        await expect(token.mint(user1.address, amount))
-        .to.emit(token, "TokensMinted")
-        .withArgs(user1.address, amount);
-    });
-    it("Should allow multiple mints", async () => {
-        await token.mint(user1.address, ethers.parseEther("1000"));
-        await token.mint(user2.address, ethers.parseEther("2000"));
-        await token.mint(user3.address, ethers.parseEther("3000"));
+            await expect(token.mint(user1.address, amount))
+                .to.emit(token, "TokensMinted")
+                .withArgs(user1.address, amount);
+        });
+        
+        it("Should allow multiple mints", async () => {
+            await token.mint(user1.address, ethers.parseEther("1000"));
+            await token.mint(user2.address, ethers.parseEther("2000"));
+            await token.mint(user3.address, ethers.parseEther("3000"));
 
-        expect(await token.totalSupply()).to.equal(ethers.parseEther("6000"));
-    });
-    it("Should revert if non-owner tries to mint", async() => {
-        await expect(
-            token.connect(user1).mint(user2.address, ethers.parseEther("1000"))
+            expect(await token.totalSupply()).to.equal(ethers.parseEther("6000"));
+        });
+        
+        it("Should revert if non-owner tries to mint", async () => {
+            await expect(
+                token.connect(user1).mint(user2.address, ethers.parseEther("1000"))
             ).to.be.revertedWithCustomError(token, "OwnableUnauthorizedAccount");
-    });
-    it("Should revert if minting to zero address", async() => {
-        await expect( 
-            token.mint(ethers.ZeroAddress, ethers.parseEther("1000"))
-        ).to.be.revertedWithCustomError(token, "ZeroAddress");
-    });
-    it("Should revert if exceeds MAX_SUPPLY", async() => {
-        const tooMuch = MAX_SUPPLY + 1n;
+        });
+        
+        it("Should revert if minting to zero address", async () => {
+            await expect( 
+                token.mint(ethers.ZeroAddress, ethers.parseEther("1000"))
+            ).to.be.revertedWithCustomError(token, "ZeroAddress");
+        });
+        
+        it("Should revert if exceeds MAX_SUPPLY", async () => {
+            const tooMuch = MAX_SUPPLY + 1n;
 
-        await expect(
-            token.mint(user1.address, tooMuch)
-        ).to.be.revertedWithCustomError(token, "ExceedsMaxSupply");
-    });
-    it("Should revert if total mints excced MAX_SUPPLY", async() => {
-        await token.mint(user1.address, ethers.parseEther("999999999"));  //almost all supply
-        await expect(
-            token.mint(user2.address, ethers.parseEther("2"))
-        ).to.be.revertedWithCustomError(token, "ExceedsMaxSupply");
-    });
-    it("Should allow minting exactly MAX_SUPPLY", async() => {
-        await token.mint(user1.address, MAX_SUPPLY);
-        expect(await token.totalSupply()).to.equal(MAX_SUPPLY);
-    });
-    it("Should revert when paused", async() => {
-        await token.pause();
-        await expect(
-            token.mint(user1.address, ethers.parseEther("1000"))
-        ).to.be.revertedWithCustomError(token, "EnforcedPause");
-    });
-    });
+            await expect(
+                token.mint(user1.address, tooMuch)
+            ).to.be.revertedWithCustomError(token, "ExceedsMaxSupply");
+        });
+        
+        it("Should revert if total mints exceed MAX_SUPPLY", async () => {
+            await token.mint(user1.address, ethers.parseEther("999999999"));
+            
+            await expect(
+                token.mint(user2.address, ethers.parseEther("2"))
+            ).to.be.revertedWithCustomError(token, "ExceedsMaxSupply");
+        });
+        
+        it("Should allow minting exactly MAX_SUPPLY", async () => {
+            await token.mint(user1.address, MAX_SUPPLY);
+            expect(await token.totalSupply()).to.equal(MAX_SUPPLY);
+        });
+        
+        it("Should revert when paused", async () => {
+            await token.pause();
+            
+            await expect(
+                token.mint(user1.address, ethers.parseEther("1000"))
+            ).to.be.revertedWithCustomError(token, "EnforcedPause");
+        });
+    });  
 
-// burn
-describe("Burn", () => {
-    beforeEach(async () => {
-        await token.mint(user1.address, ethers.parseEther("5000"));
+    //  BURN 
+    describe("Burn", () => {  
+        beforeEach(async () => {
+            await token.mint(user1.address, ethers.parseEther("5000"));
         });
 
         it("Should allow user to burn their tokens", async () => {
@@ -112,6 +128,7 @@ describe("Burn", () => {
                 ethers.parseEther("4000")
             );
         });
+        
         it("Should emit TokensBurned event", async () => {
             const amount = ethers.parseEther("1000");
             
@@ -135,8 +152,9 @@ describe("Burn", () => {
             expect(await token.totalSupply()).to.equal(totalBefore - burnAmount);
         });
     });
-    //pause
-        describe("Pause Functionality", () => {
+
+    // PAUSE
+    describe("Pause Functionality", () => {  
         it("Should allow owner to pause", async () => {
             await token.pause();
             expect(await token.paused()).to.be.true;
@@ -155,14 +173,16 @@ describe("Burn", () => {
                 token.mint(user1.address, ethers.parseEther("1000"))
             ).to.be.revertedWithCustomError(token, "EnforcedPause");
         });
+        
         it("Should revert if non-owner tries to pause", async () => {
             await expect(
                 token.connect(user1).pause()
             ).to.be.revertedWithCustomError(token, "OwnableUnauthorizedAccount");
         });
     });
-    //integration
-    describe("Integration", () => {
+
+    // INTEGRATION 
+    describe("Integration", () => { 
         it("Should allow minting and transferring", async () => {
             await token.mint(user1.address, ethers.parseEther("1000"));
             await token.connect(user1).transfer(user2.address, ethers.parseEther("500"));
@@ -179,11 +199,5 @@ describe("Burn", () => {
             expect(await token.totalSupply()).to.equal(ethers.parseEther("900"));
         });
     });
-});
 
-
-
-
-
-
-
+}); 

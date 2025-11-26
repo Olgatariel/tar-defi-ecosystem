@@ -22,8 +22,14 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
+interface ITreasury {
+    function depositETH() external payable;
+    function withdrawETH(address payable to, uint256 amount) external;
+}
+
 contract Crowdsale is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
+    ITreasury public treasury;
     using Address for address payable;
 
     //errors
@@ -177,6 +183,7 @@ contract Crowdsale is Ownable, ReentrancyGuard, Pausable {
 
         TOKEN = _token;
         TREASURY = _treasury;
+        treasury = ITreasury(_treasury);
         individualCap = _individualCap;
         softCap = _softCap;
     }
@@ -315,6 +322,8 @@ contract Crowdsale is Ownable, ReentrancyGuard, Pausable {
         investor.tokensReceived += tokenForSend;
         investor.lastPurchaseTime = block.timestamp;
 
+        treasury.depositETH{value: msg.value}();
+
         round.raised += msg.value;
         totalRaised += msg.value;
 
@@ -339,10 +348,7 @@ contract Crowdsale is Ownable, ReentrancyGuard, Pausable {
         saleFinished = true;
 
         if (totalRaised >= softCap) {
-            uint256 balance = address(this).balance;
-            payable(TREASURY).sendValue(balance);
             emit SaleFinalized(totalRaised, true);
-            emit FundsWithdrawn(TREASURY, balance);
         } else {
             emit SaleFinalized(totalRaised, false);
         }
@@ -362,7 +368,7 @@ contract Crowdsale is Ownable, ReentrancyGuard, Pausable {
 
         investor.totalContributed = 0;
 
-        payable(msg.sender).sendValue(contribution);
+        treasury.withdrawETH(payable(msg.sender), contribution);
 
         emit Refunded(msg.sender, contribution);
     }

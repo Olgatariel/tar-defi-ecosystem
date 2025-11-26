@@ -18,7 +18,7 @@ async function main() {
   const treasuryAddress = await treasury.getAddress();
   console.log("Treasury deployed at:", treasuryAddress);
 
-  // 3. Deploy Crowdsale - БЕЗ шляху!
+  // 3. Deploy Crowdsale 
   const Crowdsale = await ethers.getContractFactory("Crowdsale");
   const crowdsale = await Crowdsale.deploy(
       tokenAddress,
@@ -29,7 +29,17 @@ async function main() {
   await crowdsale.waitForDeployment();
   const crowdsaleAddress = await crowdsale.getAddress();
   console.log("Crowdsale deployed at:", crowdsaleAddress);
+
+  //Mint tokens for Crowdsale
+  await token.mint(crowdsaleAddress, ethers.parseEther("1000000"));
+  console.log("Minted 1,000,000 TAR tokens to Crowdsale");
+
+  // 4. Authorize Crowdsale in Treasury 
+  await treasury.setAuthorized(crowdsaleAddress, true);
+  console.log("Crowdsale authorized in Treasury");
 }
+
+
 
 main().catch((error) => {
   console.error(error);
